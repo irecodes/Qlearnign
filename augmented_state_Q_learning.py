@@ -121,39 +121,13 @@ def get_target_row(agent_position):
 
 
 
-# def compute_reward(env, agent):
-#     puck_r, puck_c = env.object_pos
-#     agent_r, agent_c = agent.position
-#     # Se c'è HIT:
-#     if [puck_r, puck_c] == list(agent.position):
-#         return 100
-    
-#     # Determina la riga target per il colpo in base alla posizione scelta dall'agente
-#     target_row = get_target_row(agent.position)
-#     error = target_row - puck_r  # quanti step mancano al raggiungimento della target row
-#     horizontal_distance = abs(agent_c - puck_c)
-#     if horizontal_distance != 0 and action == 0:
-#         return 20
-#     # Se l'agente è allineato orizzontalmente, il reward aumenta man mano che il puck si avvicina alla target row.
-#     if horizontal_distance == 0:
-#         if error > 0:  # il puck non è ancora arrivato alla target row
-#             return 50 - 10 * error  # error minore → reward maggiore
-#         # elif error == 0:
-#         #     # Se il puck è esattamente nella target row (ma non ancora in collisione)
-#         #     return 0
-#         else:  # il puck ha superato la target row
-#             return -100 - 10 * abs(error)
-#     else:
-#         # Se l'agente non è allineato, penalizziamo in base alla distanza orizzontale.
-#         return -50 - 10 * horizontal_distance
-
 
 def compute_reward(env, agent):
     puck_r, puck_c = env.object_pos
     agent_r, agent_c = agent.position
     # Se c'è HIT:
     if [puck_r, puck_c] == list(agent.position):
-        return 100
+        return 150
     
     # Determina la riga target per il colpo in base alla posizione scelta dall'agente
     target_row = get_target_row(agent.position)
@@ -178,10 +152,9 @@ def compute_reward(env, agent):
 
 
 
-
 # Parametri di simulazione e Q-learning
 size = 7                   # griglia 7x7
-num_episodes = 300000       # numero totale di episodi
+num_episodes = 30000       # numero totale di episodi
 max_steps_per_episode = size  # numero massimo di step per episodio
 
 learning_rate = 0.1
@@ -191,6 +164,9 @@ exploration_rate = 1
 max_exploration_rate = 1
 min_exploration_rate = 0.001
 exploration_decay_rate = 0.001
+
+
+n_runs = 100
 
 # Impostazione della figura per la visualizzazione
 fig, ax = plt.subplots(figsize=(7, 7))
@@ -224,139 +200,162 @@ def update(frame, env, agent, action, done):
     state = (env.object_pos.copy(), agent.position)
     return state, reward, done
 
-# Inizializza ambiente, agente e Q-table.
-env = MovingObject(size)
-agent = Agent(size)
-action_space_size = len(agent.valid_positions)   # 7 azioni
-num_agent_positions = len(agent.valid_positions)
-state_space_size = size * size * num_agent_positions  # 7*7*7 = 343
-q_table = np.zeros((state_space_size, action_space_size))
-rewards_all_episodes = []
+cmap = plt.get_cmap('viridis')
 
-saved_trajectories = []  # per visualizzare alcune traiettorie
-successes = []          # 1 se HIT, 0 altrimenti
-success_rates = []      # percentuale di successo ogni 1000 episodi
+# Genera 100 colori, forzando il canale alfa a 0.6 (semtrasparenza)
+colors = [(*cmap(i/99)[:3], 0.6) for i in range(100)]
 
-# Ciclo di Q-learning
-for episode in tqdm(range(num_episodes), desc="Training episodes"):
-    env = MovingObject(size)
-    agent = Agent(size)  # reset dell'agente alla posizione iniziale (waiting)
-    init()
-    state_index = get_state(env, agent, size)
-    done = False
-    rewards_current_episode = 0
-    puck_trajectory = []
-    agent_trajectory = []
-    episode_success = 0
-    
-    for step in range(max_steps_per_episode):
-        exploration_rate_threshold = random.uniform(0, 1)
-        if exploration_rate_threshold > exploration_rate:
-            action = np.argmax(q_table[state_index, :])
-        else:
-            action = random.randint(0, action_space_size - 1)
-        
-        new_state, reward, done = update(step, env, agent, action, done)
-        new_state_index = get_state(env, agent, size)
-        
-        q_table[state_index, action] = q_table[state_index, action] * (1 - learning_rate) + \
-            learning_rate * (reward + discount_rate * np.max(q_table[new_state_index, :]))
-        
-        state_index = new_state_index
-        rewards_current_episode += reward
-        
-        puck_trajectory.append(env.object_pos.copy())
-        agent_trajectory.append(agent.position)
-        
-        if done:
-            episode_success = 1
-            break
-    
-    successes.append(episode_success)
-    # Aggiorna l'exploration rate
-    exploration_rate = min_exploration_rate + (max_exploration_rate - min_exploration_rate) * np.exp(-exploration_decay_rate * episode)
-    rewards_all_episodes.append(rewards_current_episode)
-    
-    if (episode + 1) % 1000 == 0:
-        recent_success_rate = sum(successes[-1000:]) / 1000 * 100
-        success_rates.append(recent_success_rate)
-    
-    # Salva alcune traiettorie negli ultimi episodi (ultimo 10%) se c'è HIT
-    if episode > (num_episodes * 0.9):
-        # print(f"Episode {episode}: Reward = {rewards_current_episode}")
-        # print("Puck position:", env.object_pos)
-        # print("Agent position:", agent.position)
-        saved_trajectories.append({
-            "episode": episode,
-            "puck": puck_trajectory.copy(),
-            "agent": agent_trajectory.copy()
-        })
-
-if len(saved_trajectories) > 10:
-    saved_trajectories = saved_trajectories[-10:]
-
-
-# Se q_table è un DataFrame di Pandas
-with open("q_table.txt", "w") as f:
-    f.write(str(q_table))
-
-# Funzione di visualizzazione colorata delle traiettorie
-def plot_colored_trajectory(traj, grid_size=7):
-    fig, ax = plt.subplots(figsize=(7, 7))
-    
-    ax.set_xticks(np.arange(-0.5, grid_size, 1), minor=True)
-    ax.set_yticks(np.arange(-0.5, grid_size, 1), minor=True)
-    ax.grid(which="minor", color="black", linestyle='-', linewidth=1)
-    ax.set_xlim(-0.5, grid_size - 0.5)
-    ax.set_ylim(grid_size - 0.5, -0.5)
-    ax.set_xticks(np.arange(grid_size))
-    ax.set_yticks(np.arange(grid_size))
-    ax.set_xticklabels(np.arange(grid_size))
-    ax.set_yticklabels(np.arange(grid_size))
-    
-    total_actions = len(traj["agent"])
-    ax.set_title(f"Episode {traj['episode']} - Totale azioni agente: {total_actions}")
-    
-    for i, (puck_pos, agent_pos) in enumerate(zip(traj["puck"], traj["agent"])):
-        puck_r, puck_c = puck_pos
-        agent_r, agent_c = agent_pos
-        
-        if puck_pos == list(agent_pos):
-            rect = patches.Rectangle((agent_c - 0.5, agent_r - 0.5), 1, 1,
-                                     facecolor="green", alpha=0.7, edgecolor="black")
-            ax.add_patch(rect)
-            ax.text(agent_c, agent_r, f"HIT\n({i})", color="white",
-                    ha="center", va="center", fontsize=10, weight="bold")
-        else:
-            rect_puck = patches.Rectangle((puck_c - 0.5, puck_r - 0.5), 1, 1,
-                                          facecolor="blue", alpha=0.5, edgecolor="black")
-            ax.add_patch(rect_puck)
-            ax.text(puck_c, puck_r, f"P{i}", color="white",
-                    ha="center", va="center", fontsize=10, weight="bold")
-            
-            rect_agent = patches.Rectangle((agent_c - 0.5, agent_r - 0.5), 1, 1,
-                                           facecolor="red", alpha=0.5, edgecolor="black")
-            ax.add_patch(rect_agent)
-            ax.text(agent_c, agent_r, f"A{i}", color="white",
-                    ha="center", va="center", fontsize=10, weight="bold")
-    
-    plt.savefig(f"trajectory_episode_{traj['episode']}.png")
-    plt.close()
-
-for traj in saved_trajectories:
-    plot_colored_trajectory(traj, grid_size=size)
-
-    
-for traj in saved_trajectories:
-    video_filename = f"trajectory_episode_{traj['episode']}.mp4"
-    create_video(traj, video_filename)
-
-
+# Crea la figura una volta sola
 plt.figure(figsize=(10, 5))
-plt.plot(np.arange(1000, num_episodes + 1, 1000), success_rates, color='green', linewidth=2)
 plt.xlabel('Episodes')
 plt.ylabel('Success (%)')
 plt.title("Success rate during training")
 plt.grid(True, linestyle='--', alpha=0.6)
-plt.show()
 
+
+success_rates = []  # Initialize success_rates before the loop
+
+for run in range(n_runs):
+    print(f"Run {run+1}")
+    env = MovingObject(size)
+    agent = Agent(size)
+    action_space_size = len(agent.valid_positions)   # 7 azioni
+    num_agent_positions = len(agent.valid_positions)
+    state_space_size = size * size * num_agent_positions  # 7*7*7 = 343
+    q_table = np.zeros((state_space_size, action_space_size))
+    rewards_all_episodes = []
+
+    saved_trajectories = []  # per visualizzare alcune traiettorie
+    successes = []          # 1 se HIT, 0 altrimenti
+    success_rates = []      # percentuale di successo ogni 1000 episodi
+
+    # Ciclo di Q-learning
+    for episode in tqdm(range(num_episodes), desc="Training episodes"):
+        env = MovingObject(size)
+        agent = Agent(size)  # reset dell'agente alla posizione iniziale (waiting)
+        init()
+        state_index = get_state(env, agent, size)
+        done = False
+        rewards_current_episode = 0
+        puck_trajectory = []
+        agent_trajectory = []
+        episode_success = 0
+        
+        for step in range(max_steps_per_episode):
+            exploration_rate_threshold = random.uniform(0, 1)
+            if exploration_rate_threshold > exploration_rate:
+                action = np.argmax(q_table[state_index, :])
+            else:
+                action = random.randint(0, action_space_size - 1)
+            
+            new_state, reward, done = update(step, env, agent, action, done)
+            new_state_index = get_state(env, agent, size)
+            
+            q_table[state_index, action] = q_table[state_index, action] * (1 - learning_rate) + \
+                learning_rate * (reward + discount_rate * np.max(q_table[new_state_index, :]))
+            
+            state_index = new_state_index
+            rewards_current_episode += reward
+            
+            puck_trajectory.append(env.object_pos.copy())
+            agent_trajectory.append(agent.position)
+            
+            if done:
+                episode_success = 1
+                break
+        
+        successes.append(episode_success)
+        # Aggiorna l'exploration rate
+        exploration_rate = min_exploration_rate + (max_exploration_rate - min_exploration_rate) * np.exp(-exploration_decay_rate * episode)
+        rewards_all_episodes.append(rewards_current_episode)
+        
+        if (episode + 1) % 1000 == 0:
+            recent_success_rate = sum(successes[-1000:]) / 1000 * 100
+            success_rates.append(recent_success_rate)
+        
+        # Salva alcune traiettorie negli ultimi episodi (ultimo 10%) se c'è HIT
+        if episode > (num_episodes * 0.9):
+            # print(f"Episode {episode}: Reward = {rewards_current_episode}")
+            # print("Puck position:", env.object_pos)
+            # print("Agent position:", agent.position)
+            saved_trajectories.append({
+                "episode": episode,
+                "puck": puck_trajectory.copy(),
+                "agent": agent_trajectory.copy()
+            })
+
+    if len(saved_trajectories) > 10:
+        saved_trajectories = saved_trajectories[-10:]
+
+
+    # Se q_table è un DataFrame di Pandas
+    with open("q_table.txt", "w") as f:
+        f.write(str(q_table))
+
+    # Funzione di visualizzazione colorata delle traiettorie
+    def plot_colored_trajectory(traj, grid_size=7):
+        fig, ax = plt.subplots(figsize=(7, 7))
+        
+        ax.set_xticks(np.arange(-0.5, grid_size, 1), minor=True)
+        ax.set_yticks(np.arange(-0.5, grid_size, 1), minor=True)
+        ax.grid(which="minor", color="black", linestyle='-', linewidth=1)
+        ax.set_xlim(-0.5, grid_size - 0.5)
+        ax.set_ylim(grid_size - 0.5, -0.5)
+        ax.set_xticks(np.arange(grid_size))
+        ax.set_yticks(np.arange(grid_size))
+        ax.set_xticklabels(np.arange(grid_size))
+        ax.set_yticklabels(np.arange(grid_size))
+        
+        total_actions = len(traj["agent"])
+        ax.set_title(f"Episode {traj['episode']} - Totale azioni agente: {total_actions}")
+        
+        for i, (puck_pos, agent_pos) in enumerate(zip(traj["puck"], traj["agent"])):
+            puck_r, puck_c = puck_pos
+            agent_r, agent_c = agent_pos
+            
+            if puck_pos == list(agent_pos):
+                rect = patches.Rectangle((agent_c - 0.5, agent_r - 0.5), 1, 1,
+                                        facecolor="green", alpha=0.7, edgecolor="black")
+                ax.add_patch(rect)
+                ax.text(agent_c, agent_r, f"HIT\n({i})", color="white",
+                        ha="center", va="center", fontsize=10, weight="bold")
+            else:
+                rect_puck = patches.Rectangle((puck_c - 0.5, puck_r - 0.5), 1, 1,
+                                            facecolor="blue", alpha=0.5, edgecolor="black")
+                ax.add_patch(rect_puck)
+                ax.text(puck_c, puck_r, f"P{i}", color="white",
+                        ha="center", va="center", fontsize=10, weight="bold")
+                
+                rect_agent = patches.Rectangle((agent_c - 0.5, agent_r - 0.5), 1, 1,
+                                            facecolor="red", alpha=0.5, edgecolor="black")
+                ax.add_patch(rect_agent)
+                ax.text(agent_c, agent_r, f"A{i}", color="white",
+                        ha="center", va="center", fontsize=10, weight="bold")
+        
+        plt.savefig(f"trajectory_episode_{traj['episode']}.png")
+        plt.close()
+
+    for traj in saved_trajectories:
+        plot_colored_trajectory(traj, grid_size=size)
+
+        
+    for traj in saved_trajectories:
+        video_filename = f"trajectory_episode_{traj['episode']}.mp4"
+        create_video(traj, video_filename)
+
+    plt.plot(np.arange(1000, num_episodes + 1, 1000), success_rates, color=colors[run], linewidth=2, label=f'Run {run+1}')
+    # plt.legend()
+    
+    # Aggiorna la figura per vedere subito il risultato del run corrente
+    plt.pause(0.5)  # pausa breve per visualizzare l'aggiornamento (puoi regolare il tempo)
+
+    
+    # plt.figure(figsize=(10, 5))
+    # plt.plot(np.arange(1000, num_episodes + 1, 1000), success_rates, linewidth=2)
+    # plt.xlabel('Episodes')
+    # plt.ylabel('Success (%)')
+    # plt.title("Success rate during training")
+    # plt.grid(True, linestyle='--', alpha=0.6)
+    # plt.show()
+
+plt.show()
