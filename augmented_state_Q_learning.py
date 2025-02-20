@@ -127,7 +127,7 @@ def compute_reward(env, agent):
     agent_r, agent_c = agent.position
     # Se c'è HIT:
     if [puck_r, puck_c] == list(agent.position):
-        return 150
+        return 250
     
     # Determina la riga target per il colpo in base alla posizione scelta dall'agente
     target_row = get_target_row(agent.position)
@@ -139,9 +139,9 @@ def compute_reward(env, agent):
     if column_distance == 0:
         if error > 0:  # il puck non è ancora arrivato alla target row
             return 50 - 10 * error  # error minore → reward maggiore
-        # elif error == 0:
-        #     # Se il puck è esattamente nella target row (ma non ancora in collisione)
-        #     return 0
+        elif error == 0:
+            # Se il puck è esattamente nella target row (ma non ancora in collisione)
+            return -50
         else:  # il puck ha superato la target row
             return -100 - 10 * abs(error)
     else:
@@ -206,7 +206,7 @@ cmap = plt.get_cmap('viridis')
 colors = [(*cmap(i/99)[:3], 0.6) for i in range(100)]
 
 # Crea la figura una volta sola
-plt.figure(figsize=(10, 5))
+plt.figure(figsize=(20, 10))
 plt.xlabel('Episodes')
 plt.ylabel('Success (%)')
 plt.title("Success rate during training")
@@ -214,6 +214,7 @@ plt.grid(True, linestyle='--', alpha=0.6)
 
 
 success_rates = []  # Initialize success_rates before the loop
+all_success_rates = []  # Initialize all_success_rates before the loop
 
 for run in range(n_runs):
     print(f"Run {run+1}")
@@ -275,18 +276,18 @@ for run in range(n_runs):
         
         # Salva alcune traiettorie negli ultimi episodi (ultimo 10%) se c'è HIT
         if episode > (num_episodes * 0.9):
-            # print(f"Episode {episode}: Reward = {rewards_current_episode}")
-            # print("Puck position:", env.object_pos)
-            # print("Agent position:", agent.position)
+
             saved_trajectories.append({
                 "episode": episode,
                 "puck": puck_trajectory.copy(),
                 "agent": agent_trajectory.copy()
             })
-
+    
+    all_success_rates.append(success_rates)
     if len(saved_trajectories) > 10:
         saved_trajectories = saved_trajectories[-10:]
 
+    
 
     # Se q_table è un DataFrame di Pandas
     with open("q_table.txt", "w") as f:
@@ -349,13 +350,45 @@ for run in range(n_runs):
     # Aggiorna la figura per vedere subito il risultato del run corrente
     plt.pause(0.5)  # pausa breve per visualizzare l'aggiornamento (puoi regolare il tempo)
 
-    
-    # plt.figure(figsize=(10, 5))
-    # plt.plot(np.arange(1000, num_episodes + 1, 1000), success_rates, linewidth=2)
-    # plt.xlabel('Episodes')
-    # plt.ylabel('Success (%)')
-    # plt.title("Success rate during training")
-    # plt.grid(True, linestyle='--', alpha=0.6)
-    # plt.show()
+# Converti all_success_rates in un array NumPy se non lo è già
+all_success_rates = np.array(all_success_rates)  # shape = (n_runs, n_checkpoints)
+episodes_axis = np.arange(1000, num_episodes + 1, 1000)
 
+# Calcola statistiche principali
+mean_sr = np.mean(all_success_rates, axis=0)
+std_sr = np.std(all_success_rates, axis=0)
+lower_bound = mean_sr - std_sr
+upper_bound = mean_sr + std_sr
+
+# Alcuni valori chiave per la comprensione
+final_mean = mean_sr[-1]  # Valore medio alla fine dell'addestramento
+first_quarter_mean = np.mean(mean_sr[:len(mean_sr)//4])  # Media nel primo 25% degli episodi
+mid_training_mean = np.mean(mean_sr[len(mean_sr)//2:len(mean_sr)//2 + len(mean_sr)//4])  # Media a metà
+final_std = std_sr[-1]  # Deviazione standard finale
+
+# Crea una figura separata con tonalità di viola freddo
+plt.figure(figsize=(10, 6))
+plt.plot(episodes_axis, mean_sr, color="darkslateblue", linewidth=2, label='Mean success rate')
+plt.fill_between(episodes_axis, lower_bound, upper_bound, color="darkslateblue", alpha=0.3, label='± 1 Std Dev')
+
+plt.xlabel('Episodes')
+plt.ylabel('Success (%)')
+plt.title('Aggregated Success Rate with Variance (Cold Purple Shades)')
+plt.grid(True, linestyle='--', alpha=0.6)
+plt.legend()
+
+# Aggiunta di annotazioni per valori significativi
+textstr = f"Final Mean: {final_mean:.2f}%\n" \
+          f"Final Std Dev: {final_std:.2f}%\n" \
+          f"Mean (1st Quarter): {first_quarter_mean:.2f}%\n" \
+          f"Mean (Mid Training): {mid_training_mean:.2f}%"
+
+plt.gca().text(0.02, 0.02, textstr, transform=plt.gca().transAxes,
+               fontsize=12, verticalalignment='bottom', bbox=dict(facecolor='white', alpha=0.5))
+
+# Salva la figura con il nome specificato
+plt.savefig("aggregated_success_rate_cold_purple.png")
+
+
+plt.savefig("success_rate_training.png")
 plt.show()
