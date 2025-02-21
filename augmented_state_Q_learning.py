@@ -58,7 +58,6 @@ def create_video(traj, video_filename, grid_size=7):
 
 
 
-# Funzione per convertire lo stato composto (puck e agente) in un indice univoco.
 def state_to_index(puck_state, agent_state, grid_size, num_agent_positions):
     # puck_state: [riga, colonna]
     # agent_state: indice (0,...,num_agent_positions-1)
@@ -125,27 +124,26 @@ def get_target_row(agent_position):
 def compute_reward(env, agent):
     puck_r, puck_c = env.object_pos
     agent_r, agent_c = agent.position
-    # Se c'è HIT:
+   
     if [puck_r, puck_c] == list(agent.position):
         return 250
     
-    # Determina la riga target per il colpo in base alla posizione scelta dall'agente
+
     target_row = get_target_row(agent.position)
-    error = target_row - puck_r  # quanti step mancano al raggiungimento della target row
+    error = target_row - puck_r  
     column_distance = abs(agent_c - puck_c)
     if column_distance != 0 and action == 0:
         return 25
-    # Se l'agente è allineato orizzontalmente, il reward aumenta man mano che il puck si avvicina alla target row.
+
     if column_distance == 0:
-        if error > 0:  # il puck non è ancora arrivato alla target row
-            return 50 - 10 * error  # error minore → reward maggiore
+        if error > 0:  
+            return 50 - 10 * error  
         elif error == 0:
-            # Se il puck è esattamente nella target row (ma non ancora in collisione)
             return -50
-        else:  # il puck ha superato la target row
+        else:  
             return -100 - 10 * abs(error)
     else:
-        # Se l'agente non è allineato, penalizziamo in base alla distanza orizzontale.
+        
         return -50 - 10 * column_distance
 
 
@@ -200,10 +198,13 @@ def update(frame, env, agent, action, done):
     state = (env.object_pos.copy(), agent.position)
     return state, reward, done
 
-cmap = plt.get_cmap('viridis')
+cmap = plt.get_cmap('Spectral')
 
 # Genera 100 colori, forzando il canale alfa a 0.6 (semtrasparenza)
-colors = [(*cmap(i/99)[:3], 0.6) for i in range(100)]
+colors1 = [(*cmap(i/99)[:3], 0.6) for i in range(49)]
+colors2 = [(*cmap(i/99)[:3], 0.75) for i in range(50, 100)]
+colors = colors1 + colors2
+# colors = [(*cmap(i/99)[:3], 0.6) for i in range(100)]
 
 # Crea la figura una volta sola
 plt.figure(figsize=(20, 10))
@@ -220,7 +221,7 @@ for run in range(n_runs):
     print(f"Run {run+1}")
     env = MovingObject(size)
     agent = Agent(size)
-    action_space_size = len(agent.valid_positions)   # 7 azioni
+    action_space_size = len(agent.valid_positions)   # 7 actions
     num_agent_positions = len(agent.valid_positions)
     state_space_size = size * size * num_agent_positions  # 7*7*7 = 343
     q_table = np.zeros((state_space_size, action_space_size))
@@ -289,7 +290,7 @@ for run in range(n_runs):
 
     
 
-    # Se q_table è un DataFrame di Pandas
+    np.set_printoptions(threshold=np.inf)
     with open("q_table.txt", "w") as f:
         f.write(str(q_table))
 
@@ -308,7 +309,7 @@ for run in range(n_runs):
         ax.set_yticklabels(np.arange(grid_size))
         
         total_actions = len(traj["agent"])
-        ax.set_title(f"Episode {traj['episode']} - Totale azioni agente: {total_actions}")
+        ax.set_title(f"Episode {traj['episode']}")
         
         for i, (puck_pos, agent_pos) in enumerate(zip(traj["puck"], traj["agent"])):
             puck_r, puck_c = puck_pos
@@ -345,6 +346,7 @@ for run in range(n_runs):
         create_video(traj, video_filename)
 
     plt.plot(np.arange(1000, num_episodes + 1, 1000), success_rates, color=colors[run], linewidth=2, label=f'Run {run+1}')
+    plt.savefig("success_rate_training.png")
     # plt.legend()
     
     # Aggiorna la figura per vedere subito il risultato del run corrente
@@ -373,7 +375,7 @@ plt.fill_between(episodes_axis, lower_bound, upper_bound, color="darkslateblue",
 
 plt.xlabel('Episodes')
 plt.ylabel('Success (%)')
-plt.title('Aggregated Success Rate with Variance (Cold Purple Shades)')
+plt.title('Aggregated Success Rate with Variance')
 plt.grid(True, linestyle='--', alpha=0.6)
 plt.legend()
 
@@ -390,5 +392,5 @@ plt.gca().text(0.02, 0.02, textstr, transform=plt.gca().transAxes,
 plt.savefig("aggregated_success_rate_cold_purple.png")
 
 
-plt.savefig("success_rate_training.png")
+
 plt.show()
