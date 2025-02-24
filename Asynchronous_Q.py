@@ -113,26 +113,26 @@ def get_state(env, agent, grid_size):
     return state_to_index(puck_state, agent_state, grid_size, num_agent_positions)
 
 # --------------------------
-# Funzione di reward: premia il colpo e un bonus se l'agente resta in attesa
+# Reward Function
 # --------------------------
 def compute_reward(env, agent):
     if env.object_pos == list(agent.position):
         return 550  
     if agent.position == (6, 3):
-        return 10   # wait
-    #negative reward for not hitting the puck (the puck surpasses the agent)
-    # if env.object_pos[0] > agent.position[0]:
-    #     return -1
-    return -0.01     
+        return 5  # wait
+    #negative reward if the object surpasses the agent and the agent becomes unable ro reach it
+    if env.object_pos[0] > agent.position[0]:
+        return -450
+    return -0.01  
 
 # --------------------------
-# Parametri di simulazione e Q-learning
+# Q-learning parameters
 # --------------------------
 size = 7  # griglia 7x7
 num_episodes = 30000
 max_steps_per_episode = size  # ad es., 7 step per episodio
 
-learning_rate = 0.05
+learning_rate = 0.1
 discount_rate = 0.995
 
 exploration_rate = 1
@@ -142,27 +142,25 @@ exploration_decay_rate = 0.001
 
 n_runs = 100
 
-# Configurazione grafica per visualizzare il successo durante l'addestramento
-cmap = plt.get_cmap('turbo')
+cmap = plt.get_cmap('managua')
 
-colors = [(*cmap(i/99)[:3], 1) for i in range(99)]
+colors = [(*cmap(i/(n_runs - 1))[:3], 1) for i in range(n_runs)]
 plt.figure(figsize=(20, 10))
 plt.xlabel('Episodes')
 plt.ylabel('Success (%)')
-plt.title("Success rate during training")
+plt.title(f"Success rate during training over {n_runs} runs")
 plt.grid(True, linestyle='--', alpha=0.6)
 
 all_success_rates = []
 
 # --------------------------
-# Ciclo principale di training con Q-learning
+# Q learning cycle
 # --------------------------
 for run in range(n_runs):
     print(f"Run {run+1}")
     env = MovingObject(size)
     agent = Agent(size)
-    action_space_size = 3  # 3 azioni possibili: 0 = fermo, 1 = destra, 2 = sinistra
-    # Lo spazio degli stati è dato da: 49 posizioni del puck * 7 posizioni possibili per l'agente = 343 stati
+    action_space_size = 3 
     state_space_size = size * size * len(agent.valid_positions)
     q_table = np.zeros((state_space_size, action_space_size))
     
@@ -179,20 +177,28 @@ for run in range(n_runs):
         puck_trajectory = []
         agent_trajectory = []
         
+        # Inizializza la variabile che terrà traccia dell'azione in corso
+        current_action = None
+        
         for step in range(max_steps_per_episode):
-            # Scelta dell'azione con esplorazione/esploitazione
-            exploration_rate_threshold = random.uniform(0, 1)
-            if exploration_rate_threshold > exploration_rate:
-                action = np.argmax(q_table[state_index, :])
-            else:
-                action = random.randint(0, action_space_size - 1)
             
-            env.step()            # il puck si muove
-            agent.move(action)    # l'agente esegue la mossa (graduale se non resta fermo)
+            if agent.action_steps_remaining > 0:
+                action = current_action
+            else:
+                
+                exploration_rate_threshold = random.uniform(0, 1)
+                if exploration_rate_threshold > exploration_rate:
+                    action = np.argmax(q_table[state_index, :])
+                else:
+                    action = random.randint(0, action_space_size - 1)
+                current_action = action  
+            
+            env.step()            
+            agent.move(action)    
             new_state_index = get_state(env, agent, size)
             reward = compute_reward(env, agent)
             
-            # Aggiornamento della Q-table secondo la regola del Q-learning
+            # Aggiorna la Q-table usando la stessa azione corrente
             q_table[state_index, action] = q_table[state_index, action] * (1 - learning_rate) + \
                 learning_rate * (reward + discount_rate * np.max(q_table[new_state_index, :]))
             
@@ -200,7 +206,7 @@ for run in range(n_runs):
             puck_trajectory.append(env.object_pos.copy())
             agent_trajectory.append(list(agent.position))
             
-            # Se il puck e l'agente coincidono => HIT: termina l'episodio
+            # Se c'è HIT, termina l'episodio
             if env.object_pos == list(agent.position):
                 episode_success = 1
                 break
@@ -230,7 +236,7 @@ for run in range(n_runs):
         f.write(str(q_table))
     
     # --------------------------
-    # Funzione per visualizzare la traiettoria colorata
+    # grid plot
     # --------------------------
     def plot_colored_trajectory(traj, grid_size=7):
         fig, ax = plt.subplots(figsize=(7, 7))
@@ -264,10 +270,8 @@ for run in range(n_runs):
                 ax.text(agent_pos[1], agent_pos[0], f"A{i}", color="white",
                         ha="center", va="center", fontsize=10, weight="bold")
         
-        # plt.savefig(f"trajectory_episode_{traj['episode']}.png")
         plt.close()
 
-    # Salva le traiettorie grafiche e genera un video per ciascuna
     for traj in saved_trajectories:
         plot_colored_trajectory(traj, grid_size=size)
         video_filename = f"trajectory_episode_{traj['episode']}.mp4"
@@ -277,7 +281,7 @@ for run in range(n_runs):
     plt.pause(0.5)
 
 # --------------------------
-# Visualizzazione aggregata dei successi
+#plots
 # --------------------------
 all_success_rates = np.array(all_success_rates)
 episodes_axis = np.arange(1000, num_episodes + 1, 1000)
