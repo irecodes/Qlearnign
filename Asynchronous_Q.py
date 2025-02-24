@@ -117,10 +117,13 @@ def get_state(env, agent, grid_size):
 # --------------------------
 def compute_reward(env, agent):
     if env.object_pos == list(agent.position):
-        return 250  # premio per il colpo
+        return 550  
     if agent.position == (6, 3):
-        return 10   # bonus per restare in attesa
-    return -0.01      # reward neutro negli altri casi
+        return 10   # wait
+    #negative reward for not hitting the puck (the puck surpasses the agent)
+    # if env.object_pos[0] > agent.position[0]:
+    #     return -1
+    return -0.01     
 
 # --------------------------
 # Parametri di simulazione e Q-learning
@@ -129,7 +132,7 @@ size = 7  # griglia 7x7
 num_episodes = 30000
 max_steps_per_episode = size  # ad es., 7 step per episodio
 
-learning_rate = 0.1
+learning_rate = 0.05
 discount_rate = 0.995
 
 exploration_rate = 1
