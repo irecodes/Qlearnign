@@ -98,7 +98,7 @@ class Agent:
                 self.position = self.target_path.pop(0)
 
 # --------------------------
-# Definizione dello spazio degli stati (puck + agente)
+# State space
 # --------------------------
 def state_to_index(puck_state, agent_state, grid_size, num_agent_positions):
     # Calcola un indice univoco combinando la posizione del puck e quella dell'agente
@@ -117,12 +117,12 @@ def get_state(env, agent, grid_size):
 # --------------------------
 def compute_reward(env, agent):
     if env.object_pos == list(agent.position):
-        return 550  
+        return 650 
     if agent.position == (6, 3):
-        return 5  # wait
+        return 7  # wait
     #negative reward if the object surpasses the agent and the agent becomes unable ro reach it
     if env.object_pos[0] > agent.position[0]:
-        return -450
+        return -350
     return -0.01  
 
 # --------------------------
@@ -212,7 +212,7 @@ for run in range(n_runs):
                 break
         
         successes.append(episode_success)
-        # Aggiornamento dell'exploration rate (decadimento esponenziale)
+        # Update of the exploration rate, exponential decay
         exploration_rate = min_exploration_rate + (max_exploration_rate - min_exploration_rate) * np.exp(-exploration_decay_rate * episode)
         
         if (episode + 1) % 1000 == 0:
