@@ -172,14 +172,14 @@ def compute_reward(env, agent):
 # --------------------------
 size = 7  # grig10lia 7x7
 num_episodes = 50000
-max_steps_per_episode = size  # ad es., 7 step per episodio
+max_steps_per_episode = size + 5  # ad es., 7 step per episodio
 
 learning_rate = 0.1
-discount_rate = 0.99
+discount_rate = 0.95
 
 exploration_rate = 1
 max_exploration_rate = 1
-min_exploration_rate = 0.001
+min_exploration_rate = 0.01
 exploration_decay_rate = 0.0005
 
 n_runs = 100
