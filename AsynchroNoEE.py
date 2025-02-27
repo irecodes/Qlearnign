@@ -55,17 +55,19 @@ def create_video(traj, video_filename, grid_size=7):
 class MovingObject:
     def __init__(self, size=7):
         self.size = size
-        # Il puck parte dalla riga 0 in una colonna casuale
         self.object_pos = [0, np.random.randint(0, size)]
-    
+        self.t = 0  # Contatore di quanti step sono passati
+
     def step(self):
+        self.t += 1  # Incremento a ogni step
         if self.object_pos[0] < self.size - 1:
-            self.object_pos[0] += 1  # muove il puck verso il basso
+            self.object_pos[0] += 1
         else:
             self.reset_position()
-    
+
     def reset_position(self):
         self.object_pos = [0, np.random.randint(0, self.size)]
+        self.t = 0  # Reset se vuoi ricominciare a contare da zero
 
 # --------------------------
 # Classe dell'agente: movimento graduale con 3 azioni
@@ -128,13 +130,6 @@ class Agent:
             self.action_steps_remaining = len(self.target_path)
             self.position = self.target_path.pop(0)
             self.action_steps_remaining -= 1
-        # elif action == 3:   
-        #     # Avvia path dritto
-        #     self.fsm_state = Agent.GO_STRAIGHT
-        #     self.target_path = self.path_straight.copy()
-        #     self.action_steps_remaining = len(self.target_path)
-        #     self.position = self.target_path.pop(0)
-        #     self.action_steps_remaining -= 1
 
 # --------------------------
 # State space
@@ -158,14 +153,18 @@ def get_state(env, agent_fsm, grid_size):
 # Reward Function
 # --------------------------
 def compute_reward(env, agent):
+    # Incentivo a colpire presto: ad es. riduco la ricompensa di 10 punti
+    # per ogni step accumulato nel contatore env.t
     if env.object_pos == list(agent.position):
-        return 1000 
+        return 1000 - 10 * env.t  # se colpisce subito (t=0) prende 1000, se t=10 prende 900, ecc.
+
     if agent.position == (6, 3):
-        return 7  # wait
-    #negative reward if the object surpasses the agent and the agent becomes unable to reach it
+        return 7
+
     if env.object_pos[0] > agent.position[0]:
         return -350
-    return -0.0001 
+
+    return -0.0001
 
 # --------------------------
 # Q-learning parameters
@@ -182,7 +181,7 @@ max_exploration_rate = 1
 min_exploration_rate = 0.01
 exploration_decay_rate = 0.0005
 
-n_runs = 100
+n_runs = 5
 
 cmap = plt.get_cmap('Spectral')
 
@@ -208,6 +207,8 @@ for run in range(n_runs):
     successes = []      # per registrare se ogni episodio ha portato a HIT (1) o meno (0)
     success_rates = []  # per salvare la percentuale di successo ogni 1000 episodi
     saved_trajectories = []  # per salvare alcune traiettorie (per visualizzazione)
+
+    episodes_data = []
 
     for episode in tqdm(range(num_episodes), desc="Training episodes"):
         env = MovingObject(size)
@@ -247,11 +248,21 @@ for run in range(n_runs):
             state_index = new_state_index
             puck_trajectory.append(env.object_pos.copy())
             agent_trajectory.append(list(agent.position))
+
+
             
             # Se c'è HIT, termina l'episodio
             if env.object_pos == list(agent.position):
                 episode_success = 1
                 break
+            
+        
+        episodes_data.append({
+            "episode": episode,
+            "puck": puck_trajectory,
+            "agent": agent_trajectory
+            }) 
+
         
         successes.append(episode_success)
         # Update of the exploration rate, exponential decay
@@ -320,11 +331,49 @@ for run in range(n_runs):
         create_video(traj, video_filename)
     
     plt.plot(np.arange(1000, num_episodes + 1, 1000), success_rates, color=colors[run], linewidth=2, label=f'Run {run+1}')
+    plt.savefig("success_rate_during_runs.png")
     plt.pause(0.5)
 
 # --------------------------
 #plots
 # --------------------------
+# Ultimi 10 episodi
+last_10_episodes = episodes_data[-10:] if len(episodes_data) > 10 else episodes_data
+
+for ep_data in last_10_episodes:
+    # 1) Creiamo la matrice di occupazione dell'AGENTE
+    occupant_matrix = np.zeros((size, size), dtype=int)
+    for (r, c) in ep_data["agent"]:
+        occupant_matrix[r, c] += 1
+
+    # 2) Costruiamo la figure e la heatmap
+    fig, ax = plt.subplots(figsize=(5, 4))
+    heatmap = ax.imshow(occupant_matrix, cmap='viridis', origin='upper')
+    cbar = plt.colorbar(heatmap, ax=ax)
+    cbar.set_label("Times visited by Agent")
+
+    # 3) Tracciamo i cerchi del puck
+    #    ep_data["puck"] = lista di posizioni (r, c) in cui si trova il puck a ogni step
+    #    scatter: x = col, y = row
+    puck_positions = ep_data["puck"]
+    puck_cols = [pos[1] for pos in puck_positions]
+    puck_rows = [pos[0] for pos in puck_positions]
+
+    # disegniamo i cerchi con marker='o', un colore a piacere (es. rosso), dimensione (s=80)
+    ax.scatter(puck_cols, puck_rows, marker='o', s=80, 
+               facecolors='none', edgecolors='r', linewidths=1.5,
+               label="Puck path")
+
+    ax.set_title(f"Heatmap - Episode {ep_data['episode']}")
+    ax.set_xlabel("Column")
+    ax.set_ylabel("Row")
+
+    ax.legend(loc="upper right")
+
+    # 4) Salviamo
+    plt.savefig(f"heatmap_episode_{ep_data['episode']}.png")
+    plt.close(fig)
+
 all_success_rates = np.array(all_success_rates)
 episodes_axis = np.arange(1000, num_episodes + 1, 1000)
 mean_sr = np.mean(all_success_rates, axis=0)
@@ -350,3 +399,6 @@ plt.gca().text(0.02, 0.02, textstr, transform=plt.gca().transAxes,
                fontsize=12, verticalalignment='bottom', bbox=dict(facecolor='white', alpha=0.5))
 plt.savefig("aggregated_success_rate_cold_purple.png")
 plt.show()
+
+
+
