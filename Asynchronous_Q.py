@@ -120,16 +120,16 @@ def compute_reward(env, agent):
         return 650 
     if agent.position == (6, 3):
         return 7  # wait
-    #negative reward if the object surpasses the agent and the agent becomes unable ro reach it
+    #negative reward if the object surpasses the agent and the agent becomes unable to reach it
     if env.object_pos[0] > agent.position[0]:
         return -350
-    return -0.01  
+    return -0.0001 
 
 # --------------------------
 # Q-learning parameters
 # --------------------------
 size = 7  # griglia 7x7
-num_episodes = 30000
+num_episodes = 50000
 max_steps_per_episode = size  # ad es., 7 step per episodio
 
 learning_rate = 0.1
@@ -138,7 +138,7 @@ discount_rate = 0.995
 exploration_rate = 1
 max_exploration_rate = 1
 min_exploration_rate = 0.001
-exploration_decay_rate = 0.001
+exploration_decay_rate = 0.0005
 
 n_runs = 100
 
@@ -232,8 +232,9 @@ for run in range(n_runs):
         saved_trajectories = saved_trajectories[-10:]
     
     # Salvataggio opzionale della Q-table su file
-    with open("q_table.txt", "w") as f:
-        f.write(str(q_table))
+    np.save("q_table.npy", q_table)
+    np.savetxt("q_table.txt", q_table, fmt="%.6f", delimiter=",")
+
     
     # --------------------------
     # grid plot

@@ -112,8 +112,9 @@ class Agent:
                 self.fsm_state = Agent.WAITING
             return
         
-        if action == Agent.WAITING:
-            # STAY
+        # Se invece siamo in WAITING, interpretiamo l'azione scelta
+        if action == 0:
+            # STAY: resta fermo in waiting
             self.fsm_state = Agent.WAITING
         elif action == 1:
             # Avvia path verso destra
@@ -155,7 +156,7 @@ def compute_reward(env, agent):
     # Incentivo a colpire presto: ad es. riduco la ricompensa di 10 punti
     # per ogni step accumulato nel contatore env.t
     if env.object_pos == list(agent.position):
-        return 1000 - 10 * env.t  # se colpisce subito (t=0) prende 1000, se t=10 prende 900, ecc.
+        return 2000 - 50 * env.t  # se colpisce subito (t=0) prende 1000, se t=10 prende 900, ecc.
 
     if agent.position == (6, 3):
         return 7
@@ -218,11 +219,16 @@ for run in range(n_runs):
         puck_trajectory = []
         agent_trajectory = []
         
+        
         # Inizializza la variabile che terrà traccia dell'azione in corso
         current_action = None
         
         for step in range(max_steps_per_episode):
-            
+            #i want to save the first position of the agent and the puck in puck_trajectory and agent_trajectory
+            if step == 0:
+                puck_trajectory.append(env.object_pos.copy())
+                agent_trajectory.append(list(agent.position))
+
             # Epsilon-greedy selection
             if random.uniform(0, 1) > exploration_rate:
                 action = np.argmax(q_table[state_index, :])
@@ -245,6 +251,7 @@ for run in range(n_runs):
                 learning_rate * (reward + discount_rate * np.max(q_table[new_state_index, :]))
 
             state_index = new_state_index
+
             puck_trajectory.append(env.object_pos.copy())
             agent_trajectory.append(list(agent.position))
 
@@ -398,6 +405,5 @@ plt.gca().text(0.02, 0.02, textstr, transform=plt.gca().transAxes,
                fontsize=12, verticalalignment='bottom', bbox=dict(facecolor='white', alpha=0.5))
 plt.savefig("aggregated_success_rate_cold_purple.png")
 plt.show()
-
 
 
