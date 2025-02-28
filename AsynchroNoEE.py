@@ -112,9 +112,8 @@ class Agent:
                 self.fsm_state = Agent.WAITING
             return
         
-        # Se invece siamo in WAITING, interpretiamo l'azione scelta
-        if action == 0:
-            # STAY: resta fermo in waiting
+        if action == Agent.WAITING:
+            # STAY
             self.fsm_state = Agent.WAITING
         elif action == 1:
             # Avvia path verso destra
