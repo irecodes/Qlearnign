@@ -156,7 +156,7 @@ def compute_reward(env, agent):
     # Incentivo a colpire presto: ad es. riduco la ricompensa di 10 punti
     # per ogni step accumulato nel contatore env.t
     if env.object_pos == list(agent.position):
-        return 2000 - 50 * env.t  # se colpisce subito (t=0) prende 1000, se t=10 prende 900, ecc.
+        return 2000 - 200 * env.t  # se colpisce subito (t=0) prende 1000, se t=10 prende 900, ecc.
 
     if agent.position == (6, 3):
         return 7
