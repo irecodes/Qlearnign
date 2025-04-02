@@ -176,7 +176,7 @@ def get_state(env, grid_size):
 def compute_reward(env, agent):
     
     if env.object_pos == list(agent.position):
-        return 1500  
+        return 1500 
     
     if agent.fsm_state == Agent.WAITING:
         return 0
@@ -195,7 +195,7 @@ discount_rate = 1
 exploration_rate = 1
 max_exploration_rate = 1
 min_exploration_rate = 0.01
-exploration_decay_rate = 0.0005
+exploration_decay_rate = 0.001
 
 n_runs = 2
 cmap = plt.get_cmap('Spectral')
