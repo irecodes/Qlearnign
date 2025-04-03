@@ -186,7 +186,7 @@ def compute_reward(env, agent):
 
 
 size = 21
-num_episodes = int(4e5)
+num_episodes = int(10e5)
 max_steps_per_episode = size  # ad es., 7 step per episodio
 
 learning_rate = 0.1
@@ -194,10 +194,10 @@ discount_rate = 1
 
 exploration_rate = 1
 max_exploration_rate = 1
-min_exploration_rate = 0.01
-exploration_decay_rate = 0.001
+min_exploration_rate = 0.001
+exploration_decay_rate = 0.0005
 
-n_runs = 2
+n_runs = 15
 cmap = plt.get_cmap('Spectral')
 
 colors = [(*cmap(i/(n_runs - 1))[:3], 1) for i in range(n_runs)]
