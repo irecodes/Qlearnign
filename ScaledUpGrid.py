@@ -132,6 +132,7 @@ class Agent:
         # Se siamo in WAITING, interpretiamo l'azione scelta
         if action == 0:
             self.fsm_state = Agent.WAITING
+        
         elif action == 1:
             self.fsm_state = Agent.GOING_RIGHT
             self.target_path = self.path_right.copy()
@@ -155,9 +156,9 @@ def get_state(env, grid_cols):
 
 def compute_reward(env, agent):
     if env.object_pos == list(agent.position):
-        return 1500 
+        return 2000 
     if agent.fsm_state == Agent.WAITING:
-        return 0.5
+        return 2
     return -15
 
 # --------------------------
@@ -166,7 +167,7 @@ def compute_reward(env, agent):
 grid_rows = 23  # Nuova dimensione: 22 righe (0...21)
 grid_cols = 21  # 21 colonne
 
-num_episodes = int(14e5)
+num_episodes = int(15e5)
 max_steps_per_episode = grid_rows  # ad es., 22 step per episodio
 
 learning_rate = 0.1
@@ -175,9 +176,9 @@ discount_rate = 1
 exploration_rate = 1
 max_exploration_rate = 1
 min_exploration_rate = 0.0005
-exploration_decay_rate = 0.0005
+exploration_decay_rate = 0.00001
 
-n_runs = 15
+n_runs = 5
 cmap = plt.get_cmap('Spectral')
 colors = [(*cmap(i/(n_runs - 1))[:3], 1) for i in range(n_runs)]
 
