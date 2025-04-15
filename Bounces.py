@@ -65,15 +65,15 @@ class MovingObject:
         elif self.dx == 1:
             self.object_pos = [0, np.random.choice([0,2,4,6,8])]
         else:
-            self.object_pos = [0, np.random.choice([21,19,17,15,13])]
+            self.object_pos = [0, np.random.choice([20, 18, 16,14,12])]
 
     def set_dx(self):
         if self.phase == 1:
             self.dx = 0
         elif self.phase == 2:
-            self.dx = 1
+            self.dx = -1
         elif self.phase == 3:
-            self.dx = np.random.choice([-1, 1])
+            self.dx = np.random.choice([-1, 0, 1])
             
     def step(self):
         self.t += 1
@@ -179,8 +179,8 @@ def compute_reward(env, agent):
     if env.object_pos == list(agent.position):
         return 2000 
     if agent.fsm_state == Agent.WAITING:
-        return 1
-    return -10
+        return 8
+    return -15
 
 # --------------------------
 # Parametri dell'environment e training
@@ -189,11 +189,11 @@ grid_rows = 23
 grid_cols = 21
 
 num_episodes = int(15e5)
-max_steps_per_episode = 20
+max_steps_per_episode = 22
 
 # Parametri per il Q-learning con eligibility traces
 learning_rate = 0.05
-discount_rate = 0.95  # leggermente inferiore ad 1 per favorire la stabilità
+discount_rate = 0.95 # leggermente inferiore ad 1 per favorire la stabilità
 lambda_trace = 0.8    # parametro lambda per le eligibility traces
 
 exploration_rate = 1
