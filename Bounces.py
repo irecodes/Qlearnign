@@ -63,9 +63,9 @@ class MovingObject:
         if self.dx == 0:
             self.object_pos = [0, np.random.randint(0, cols)]
         elif self.dx == 1:
-            self.object_pos = [0, np.random.choice([0,2,4,6,8])]
+            self.object_pos = [0, np.random.choice([0,2,4,6,8, 10, 12, 14, 16, 18])]
         else:
-            self.object_pos = [0, np.random.choice([20, 18, 16,14,12])]
+            self.object_pos = [0, np.random.choice([20, 18, 16,14,12, 2, 4, 6, 8, 10])]
 
     def set_dx(self):
         if self.phase == 1:
@@ -175,12 +175,17 @@ def get_state(env, grid_cols):
         direction = 2
     return (puck_r * grid_cols + puck_c) * 3 + direction
 
-def compute_reward(env, agent):
+def compute_reward(env, agent, progress):
+    # Se l'agente raggiunge l'obiettivo, reward elevato
     if env.object_pos == list(agent.position):
         return 2000 
+    # Se l'agente sta aspettando, reward positivo moderato
     if agent.fsm_state == Agent.WAITING:
-        return 8
-    return -15
+        return 80
+    # Penalità per movimenti non motivati che aumenta con il progresso:
+    # All'inizio la penalità è leggera (ad esempio -10) e diventa più severa
+    penalty = -10 * (1-progress) - 25 * progress  
+    return penalty
 
 # --------------------------
 # Parametri dell'environment e training
@@ -188,13 +193,13 @@ def compute_reward(env, agent):
 grid_rows = 23
 grid_cols = 21
 
-num_episodes = int(15e5)
+num_episodes = int(35e5)
 max_steps_per_episode = 22
 
 # Parametri per il Q-learning con eligibility traces
 learning_rate = 0.05
 discount_rate = 0.95 # leggermente inferiore ad 1 per favorire la stabilità
-lambda_trace = 0.8    # parametro lambda per le eligibility traces
+lambda_trace = 0.85    # parametro lambda per le eligibility traces
 
 exploration_rate = 1
 max_exploration_rate = 1
@@ -231,6 +236,9 @@ for run in range(n_runs):
     episodes_data = []
 
     for episode in tqdm(range(num_episodes), desc="Training episodes"):
+        # Calcola il progresso corrente: 0 all'inizio, 1 alla fine
+        progress = episode / num_episodes
+        
         # Inizializza il nuovo ambiente e l'agente per l'episodio corrente
         env = MovingObject(grid_rows, grid_cols, phase=phase)
         agent = Agent(grid_rows, grid_cols)
@@ -258,7 +266,7 @@ for run in range(n_runs):
             env.step()
             agent.move(action)
             new_state_index = get_state(env, grid_cols)
-            reward = compute_reward(env, agent)
+            reward = compute_reward(env, agent, progress)
             
             # Calcolo del TD error: usa max Q per il nuovo stato
             td_error = reward + discount_rate * np.max(q_table[new_state_index, :]) - q_table[state_index, action]
@@ -308,8 +316,8 @@ for run in range(n_runs):
             })
     
     all_success_rates.append(success_rates)
-    if len(saved_trajectories) > 10:
-        saved_trajectories = saved_trajectories[-10:]
+    if len(saved_trajectories) > 20:
+        saved_trajectories = saved_trajectories[-20:]
     
     def plot_colored_trajectory(traj, grid_rows, grid_cols):
         fig, ax = plt.subplots(figsize=(7, 7))
